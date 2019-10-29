@@ -11,7 +11,7 @@ import voluptuous as vol
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.components.rest.sensor import RestData
-from homeassistant.const import (STATE_UNKNOWN, STATE_OK, ATTR_ATTRIBUTION)
+from homeassistant.const import (STATE_UNKNOWN, ATTR_ATTRIBUTION)
 from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers.entity import Entity
 import homeassistant.helpers.config_validation as cv
@@ -145,7 +145,7 @@ class NswFireServiceFireDangerSensor(Entity):
                                             text_value = conversion(text_value)
                                         attributes[SENSOR_ATTRIBUTES[key][0]] \
                                             = text_value
-                                self._state = STATE_OK
+                                self._state = attributes['danger_level_today']
                                 break
             except ExpatError as ex:
                 _LOGGER.warning("Unable to parse XML data: %s", ex)
