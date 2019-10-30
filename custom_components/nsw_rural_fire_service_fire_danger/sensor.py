@@ -27,7 +27,7 @@ DEFAULT_NAME = 'Fire Danger'
 DEFAULT_VERIFY_SSL = True
 DEFAULT_FORCE_UPDATE = True
 
-SCAN_INTERVAL = timedelta(minutes=10)
+SCAN_INTERVAL = timedelta(minutes=60)
 
 SENSOR_ATTRIBUTES = {
     # <XML Key>: [<Display Name>, <Conversion Function>]
@@ -81,6 +81,7 @@ class NswFireServiceFireDangerSensor(Entity):
         self.rest = rest
         self._district_name = district_name
         self._name = 'Fire Danger in {}'.format(self._district_name)
+        self._icon = "mdi:fire"
         self._state = STATE_UNKNOWN
         self._attributes = {
             'district': district_name,
