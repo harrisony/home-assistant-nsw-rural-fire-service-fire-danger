@@ -42,6 +42,9 @@ SENSOR_ATTRIBUTES = {
     'FireBanToday':
         ['fire_ban_today', lambda x: x == 'Yes'],
     'FireBanTomorrow':
+        # Note: Possibly misleading, Seems to return 'No' even if tomorrows
+        # danger level has not been set. I would have thought a TOBAN and the
+        # level are set at the same time. Possibly misleading?
         ['fire_ban_tomorrow', lambda x: x == 'Yes']
 }
 
