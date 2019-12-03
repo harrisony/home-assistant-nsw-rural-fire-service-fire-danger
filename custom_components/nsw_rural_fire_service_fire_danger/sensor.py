@@ -32,21 +32,21 @@ SCAN_INTERVAL = timedelta(minutes=60)
 SENSOR_ATTRIBUTES = {
     # <XML Key>: [<Display Name>, <Conversion Function>]
     'RegionNumber':
-        ['region_number', lambda x: int(x)],
+        ('region_number', lambda x: int(x)),
     'Councils':
-        ['councils', lambda x: x.split(';')],
+        ('councils', lambda x: x.split(';')),
     'DangerLevelToday':
-        ['danger_level_today', lambda x: x.lower().capitalize()],
+        ('danger_level_today', lambda x: x.lower().capitalize()),
     'DangerLevelTomorrow':
-        ['danger_level_tomorrow', lambda x: x.lower().capitalize()],
+        ('danger_level_tomorrow', lambda x: x.lower().capitalize()),
     'FireBanToday':
-        ['fire_ban_today', lambda x: x == 'Yes'],
+        ('fire_ban_today', lambda x: x == 'Yes'),
     'FireBanTomorrow':
         # Note: Possibly misleading, Seems to return 'No' even if tomorrows
-        # danger level has not been set. I would have thought a TOBAN and the
+        # danger level has not been set. I would have thought a TOBAN and the 
         # level are set at the same time. Possibly misleading?
-        ['fire_ban_tomorrow', lambda x: x == 'Yes']
         # However this is how it's presented on the RFS website
+        ('fire_ban_tomorrow', lambda x: x == 'Yes')
 }
 
 URL = 'http://www.rfs.nsw.gov.au/feeds/fdrToban.xml'
@@ -112,14 +112,6 @@ class NswFireServiceFireDangerSensor(Entity):
         """Force update."""
         return DEFAULT_FORCE_UPDATE
 
-    @staticmethod
-    def _attribute_in_structure(obj, keys):
-        """Return the attribute found under the chain of keys."""
-        key = keys.pop(0)
-        if key in obj:
-            return NswFireServiceFireDangerSensor._attribute_in_structure(
-                obj[key], keys) if keys else obj[key]
-
     def update(self):
         """Get the latest data from REST API and update the state."""
         self.rest.update()
@@ -134,24 +126,21 @@ class NswFireServiceFireDangerSensor(Entity):
                 import xmltodict
 
                 value = xmltodict.parse(value)
-                districts = self._attribute_in_structure(
-                    value, [XML_FIRE_DANGER_MAP, XML_DISTRICT])
-                if districts and isinstance(districts, list):
-                    for district in districts:
-                        if XML_NAME in district:
-                            district_name = district.get(XML_NAME)
-                            if district_name == self._district_name:
-                                # Found it.
-                                for key in SENSOR_ATTRIBUTES:
-                                    if key in district:
-                                        text_value = district.get(key)
-                                        conversion = SENSOR_ATTRIBUTES[key][1]
-                                        if conversion:
-                                            text_value = conversion(text_value)
-                                        attributes[SENSOR_ATTRIBUTES[key][0]] \
-                                            = text_value
-                                self._state = attributes['danger_level_today']
-                                break
+                districts = {k[XML_NAME]: dict(k) for k in value[XML_FIRE_DANGER_MAP][XML_DISTRICT]}
+
+                sensor_district = districts.get(self._district_name)
+
+                for xml_key, xml_replacement in SENSOR_ATTRIBUTES.items():
+                    if xml_key not in sensor_district:
+                        # Ignore items not in sensor_attributes
+                        continue
+                    attr_value = sensor_district.get(xml_key)
+                    conversion = xml_replacement[1]
+                    if conversion:
+                        text_value = conversion(text_value)
+                    attributes[xml_replacement[0]]  = text_value
+
+                self._state = attributes['danger_level_today']
             except ExpatError as ex:
                 _LOGGER.warning("Unable to parse XML data: %s", ex)
         self._attributes = attributes
