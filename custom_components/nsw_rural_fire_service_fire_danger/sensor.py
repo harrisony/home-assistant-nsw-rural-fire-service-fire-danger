@@ -11,7 +11,9 @@ import voluptuous as vol
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.components.rest.sensor import RestData
-from homeassistant.const import (STATE_UNKNOWN, ATTR_ATTRIBUTION)
+from homeassistant.const import (
+    STATE_UNKNOWN, ATTR_ATTRIBUTION, CONF_FORCE_UPDATE
+)
 from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers.entity import Entity
 import homeassistant.helpers.config_validation as cv
@@ -57,6 +59,7 @@ XML_NAME = 'Name'
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_DISTRICT_NAME): cv.string,
+    vol.Optional(CONF_FORCE_UPDATE, default=DEFAULT_FORCE_UPDATE): cv.boolean,
 })
 
 
@@ -70,16 +73,18 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     if rest.data is None:
         raise PlatformNotReady
 
+    force_update = config.get(CONF_FORCE_UPDATE)
+
     # Must update the sensor now (including fetching the rest resource) to
     # ensure it's updating its state.
     add_entities([NswFireServiceFireDangerSensor(
-            hass, rest, district_name)], True)
+            hass, rest, district_name, force_update)], True)
 
 
 class NswFireServiceFireDangerSensor(Entity):
     """Implementation of the sensor."""
 
-    def __init__(self, hass, rest, district_name):
+    def __init__(self, hass, rest, district_name, force_update):
         """Initialize the sensor."""
         self._hass = hass
         self.rest = rest
@@ -87,6 +92,7 @@ class NswFireServiceFireDangerSensor(Entity):
         self._name = 'Fire Danger in {}'.format(self._district_name)
         self._icon = "mdi:fire"
         self._state = STATE_UNKNOWN
+        self._force_update = force_update
         self._attributes = {
             'district': district_name,
             ATTR_ATTRIBUTION: DEFAULT_ATTRIBUTION
@@ -110,7 +116,7 @@ class NswFireServiceFireDangerSensor(Entity):
     @property
     def force_update(self):
         """Force update."""
-        return DEFAULT_FORCE_UPDATE
+        return self._force_update
 
     def update(self):
         """Get the latest data from REST API and update the state."""
