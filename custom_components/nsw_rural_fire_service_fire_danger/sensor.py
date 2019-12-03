@@ -46,6 +46,7 @@ SENSOR_ATTRIBUTES = {
         # danger level has not been set. I would have thought a TOBAN and the
         # level are set at the same time. Possibly misleading?
         ['fire_ban_tomorrow', lambda x: x == 'Yes']
+        # However this is how it's presented on the RFS website
 }
 
 URL = 'http://www.rfs.nsw.gov.au/feeds/fdrToban.xml'
