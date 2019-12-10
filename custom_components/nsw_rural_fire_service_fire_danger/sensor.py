@@ -143,7 +143,7 @@ class NswFireServiceFireDangerSensor(Entity):
                     attr_value = sensor_district.get(xml_key)
                     conversion = xml_replacement[1]
                     if conversion:
-                        text_value = conversion(text_value)
+                        text_value = conversion(attr_value)
                     attributes[xml_replacement[0]]  = text_value
 
                 self._state = attributes['danger_level_today']
