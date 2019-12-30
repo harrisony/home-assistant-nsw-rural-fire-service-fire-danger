@@ -20,7 +20,6 @@ import homeassistant.helpers.config_validation as cv
 
 _LOGGER = logging.getLogger(__name__)
 
-DEFAULT_ATTRIBUTION = 'NSW Rural Fire Service'
 
 CONF_DISTRICT_NAME = 'district_name'
 
@@ -51,11 +50,12 @@ SENSOR_ATTRIBUTES = {
         ('fire_ban_tomorrow', lambda x: x == 'Yes')
 }
 
-URL = 'http://www.rfs.nsw.gov.au/feeds/fdrToban.xml'
 
 XML_DISTRICT = 'District'
 XML_FIRE_DANGER_MAP = 'FireDangerMap'
 XML_NAME = 'Name'
+
+ESA_DISTRICTS = {'ACT'}
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_DISTRICT_NAME): cv.string,
@@ -67,27 +67,52 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     """Set up the sensor."""
     district_name = config.get(CONF_DISTRICT_NAME)
 
-    rest = RestData(
-        DEFAULT_METHOD, URL, None, None, None, DEFAULT_VERIFY_SSL)
-    rest.update()
-    if rest.data is None:
-        raise PlatformNotReady
-
+    _LOGGER.error(ESA_DISTRICTS)
+    if district_name in ESA_DISTRICTS:
+        api = ESAFireDangerApi()
+    else:
+        api = RFSFireDangerApi()
     force_update = config.get(CONF_FORCE_UPDATE)
 
     # Must update the sensor now (including fetching the rest resource) to
     # ensure it's updating its state.
     add_entities([NswFireServiceFireDangerSensor(
-            hass, rest, district_name, force_update)], True)
+            hass, api, district_name, force_update)], True)
+
+class RFSFireDangerApi:
+    """Get the latest data and update the states."""
+
+    DEFAULT_ATTRIBUTION = 'NSW Rural Fire Service'
+    URL = 'http://www.rfs.nsw.gov.au/feeds/fdrToban.xml'
+    def __init__(self):
+        self.rest = RestData(DEFAULT_METHOD, self.URL, None, None, None, DEFAULT_VERIFY_SSL)
+        self.rest.update()
+        self._data = None
+
+    def update(self):
+        """Get the latest data from REST API and update the state."""
+        self.rest.update()
+        self._data = self.rest.data
+
+    @property
+    def data(self):
+        return self._data
+
+
+class ESAFireDangerApi(RFSFireDangerApi):
+    """Get the latest data and update the states."""
+
+    DEFAULT_ATTRIBUTION = 'ACT Emergency Services Agency'
+    URL = 'https://esa.act.gov.au/feeds/firedangerrating.xml'
 
 
 class NswFireServiceFireDangerSensor(Entity):
     """Implementation of the sensor."""
 
-    def __init__(self, hass, rest, district_name, force_update):
+    def __init__(self, hass, api, district_name, force_update):
         """Initialize the sensor."""
         self._hass = hass
-        self.rest = rest
+        self.api = api
         self._district_name = district_name
         self._name = 'Fire Danger in {}'.format(self._district_name)
         self._icon = "mdi:fire"
@@ -95,7 +120,7 @@ class NswFireServiceFireDangerSensor(Entity):
         self._force_update = force_update
         self._attributes = {
             'district': district_name,
-            ATTR_ATTRIBUTION: DEFAULT_ATTRIBUTION
+            ATTR_ATTRIBUTION: api.DEFAULT_ATTRIBUTION
         }
 
     @property
@@ -106,7 +131,7 @@ class NswFireServiceFireDangerSensor(Entity):
     @property
     def available(self):
         """Return if the sensor data are available."""
-        return self.rest.data is not None
+        return self.api.data is not None
 
     @property
     def state(self):
@@ -120,11 +145,11 @@ class NswFireServiceFireDangerSensor(Entity):
 
     def update(self):
         """Get the latest data from REST API and update the state."""
-        self.rest.update()
-        value = self.rest.data
+        self.api.update()
+        value = self.api.data
         attributes = {
             'district': self._district_name,
-            ATTR_ATTRIBUTION: DEFAULT_ATTRIBUTION
+            ATTR_ATTRIBUTION: self.api.DEFAULT_ATTRIBUTION
         }
         self._state = STATE_UNKNOWN
         if value:
@@ -132,6 +157,11 @@ class NswFireServiceFireDangerSensor(Entity):
                 import xmltodict
 
                 value = xmltodict.parse(value)
+                # this is for the ESA
+                if XML_FIRE_DANGER_MAP not in value:
+                    value = value['rss']['channel']
+                    value[XML_FIRE_DANGER_MAP][XML_DISTRICT] = [value[XML_FIRE_DANGER_MAP][XML_DISTRICT]]
+
                 districts = {k[XML_NAME]: dict(k) for k in value[XML_FIRE_DANGER_MAP][XML_DISTRICT]}
 
                 sensor_district = districts.get(self._district_name)
