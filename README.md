@@ -1,12 +1,12 @@
-# NSW Rural Fire Service - Fire Danger
+# NSW Rural Fire Service/ACT Emergency Services Agency - Fire Danger
 
 The NSW Rural Fire Service provides an [XML feed](http://www.rfs.nsw.gov.au/feeds/fdrToban.xml) that contains the fire danger
-details for today and tomorrow for districts in the state.
+details for today and tomorrow for districts in the state as well as the ACT.
 
-This custom component is implemented as a simple sensor that fetches the feed
-and stores all details of the configured district. You can then use template
-sensors to present these details in Home Assistant.
+While the Australian Capital Territory is included in the NSW RFS feed, it has in the past failed to include total fire bans
+declared by the ACT Emergency Services Agency (ESA). 
 
+This fork builds upon the work of @exxamalte to return correct ACT information and makes some more opinionated changes in regards to sensors. 
 
 ## Installation
 
@@ -15,18 +15,6 @@ In your [configuration folder](https://www.home-assistant.io/docs/configuration/
 create subfolder `<config>/custom_components` and copy the folder
 `nsw_rural_fire_service_fire_danger` into the new `custom_components` folder.
 
-Please note: This folder structure will work at least from Home Assistant 
-version 0.88 onwards. If you are using an older version, you will need to create
-sub-folders `<config>/custom_components/sensor` and move the `sensor.py` file
-in there and rename it to `nsw_rural_fire_service_fire_danger.py`.
-
-### Install dependencies
-This custom component uses one third-party library which you may need to install
-manually:
-
-```
-pip install xmltodict
-```
 
 ## Configuration Example
 
@@ -47,7 +35,7 @@ The above configuration will generate a sensor with entity id
 `sensor.fire_danger_in_greater_sydney_region` which is further used in the
 examples below.
 
-The sensor's state will either be `ok` or `unknown` if no data could be retrieved.
+The sensor's state will return the current fire danger level.
 
 The following attributes will be available for use in `template` sensors.
 
@@ -61,26 +49,7 @@ The following attributes will be available for use in `template` sensors.
 | fire_ban_today        | Indicates whether there is a fire ban today |
 | fire_ban_tomorrow     | Indicates whether there is a fire ban today |
 
-To hide this sensor you can add the following to your configuration:
 
-```yaml
-homeassistant:
-  customize:
-    sensor.fire_danger_in_greater_sydney_region:
-      hidden: true
-```
-
-### Danger Level Today
-
-```yaml
-sensor:
-  - platform: template
-    sensors:
-      fire_danger_level_today:
-        friendly_name: "Danger Level Today"
-        value_template: "{{ state_attr('sensor.fire_danger_in_greater_sydney_region', 'danger_level_today') }}"
-        icon_template: mdi:speedometer
-```
 
 ### Fire Ban Today
 ```yaml

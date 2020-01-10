@@ -67,11 +67,12 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     """Set up the sensor."""
     district_name = config.get(CONF_DISTRICT_NAME)
 
-    _LOGGER.error(ESA_DISTRICTS)
     if district_name in ESA_DISTRICTS:
         api = ESAFireDangerApi()
+        _LOGGER.info("District {} is in ACT ESA jurisdiction".format(district_name))
     else:
         api = RFSFireDangerApi()
+        _LOGGER.info("District {} is in NSW RFS jurisdiction".format(district_name))
     force_update = config.get(CONF_FORCE_UPDATE)
 
     # Must update the sensor now (including fetching the rest resource) to
@@ -98,6 +99,10 @@ class RFSFireDangerApi:
     def data(self):
         return self._data
 
+    @property
+    def extra_attrs(self):
+        return dict()
+
 
 class ESAFireDangerApi(RFSFireDangerApi):
     """Get the latest data and update the states."""
@@ -105,6 +110,13 @@ class ESAFireDangerApi(RFSFireDangerApi):
     DEFAULT_ATTRIBUTION = 'ACT Emergency Services Agency'
     URL = 'https://esa.act.gov.au/feeds/firedangerrating.xml'
 
+    @property
+    def extra_attrs(self):
+        import xmltodict
+        value = xmltodict.parse(self.data)['rss']['channel']
+
+        return {'publish date': value['pubDate'],
+                'build date': value['lastBuildDate']}
 
 class NswFireServiceFireDangerSensor(Entity):
     """Implementation of the sensor."""
@@ -149,7 +161,8 @@ class NswFireServiceFireDangerSensor(Entity):
         value = self.api.data
         attributes = {
             'district': self._district_name,
-            ATTR_ATTRIBUTION: self.api.DEFAULT_ATTRIBUTION
+            ATTR_ATTRIBUTION: self.api.DEFAULT_ATTRIBUTION,
+            **self.api.extra_attrs
         }
         self._state = STATE_UNKNOWN
         if value:
