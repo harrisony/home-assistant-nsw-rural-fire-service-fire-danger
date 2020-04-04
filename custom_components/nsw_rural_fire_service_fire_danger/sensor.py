@@ -110,10 +110,28 @@ class ESAFireDangerApi(RFSFireDangerApi):
     DEFAULT_ATTRIBUTION = 'ACT Emergency Services Agency'
     URL = 'https://esa.act.gov.au/feeds/firedangerrating.xml'
 
+    def update(self):
+        self.rest.update()
+        self._data = self.rest.data
+        # At the end of the bushfire season, the ESA return a blank file
+        if not self._data:
+            api = RFSFireDangerApi()
+            api.rest.update()
+            self._data = api.rest.data
+            self.DEFAULT_ATTRIBUTION = api.DEFAULT_ATTRIBUTION #TODO: This should likely b e a property or something
+            _LOGGER.warn("Requested data from ESA API but falling back to RFS")
+
     @property
     def extra_attrs(self):
         import xmltodict
-        value = xmltodict.parse(self.data)['rss']['channel']
+        if not self.data:
+            return dict()
+
+        parse = xmltodict.parse(self.data)
+        if 'rss' not in parse:
+            return dict()
+
+        value = parse['rss']['channel']
 
         return {'publish date': value['pubDate'],
                 'build date': value['lastBuildDate']}
