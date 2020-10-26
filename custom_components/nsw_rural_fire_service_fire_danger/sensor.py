@@ -10,7 +10,7 @@ from pyexpat import ExpatError
 import voluptuous as vol
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.components.rest.sensor import RestData
+from homeassistant.components.rest.data import RestData
 from homeassistant.const import (
     STATE_UNKNOWN, ATTR_ATTRIBUTION, CONF_FORCE_UPDATE
 )
@@ -62,8 +62,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_FORCE_UPDATE, default=DEFAULT_FORCE_UPDATE): cv.boolean,
 })
 
-
-def setup_platform(hass, config, add_entities, discovery_info=None):
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the sensor."""
     district_name = config.get(CONF_DISTRICT_NAME)
 
@@ -77,7 +76,9 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 
     # Must update the sensor now (including fetching the rest resource) to
     # ensure it's updating its state.
-    add_entities([NswFireServiceFireDangerSensor(
+    await api.async_update()
+
+    async_add_entities([NswFireServiceFireDangerSensor(
             hass, api, district_name, force_update)], True)
 
 class RFSFireDangerApi:
@@ -87,12 +88,11 @@ class RFSFireDangerApi:
     URL = 'http://www.rfs.nsw.gov.au/feeds/fdrToban.xml'
     def __init__(self):
         self.rest = RestData(DEFAULT_METHOD, self.URL, None, None, None, DEFAULT_VERIFY_SSL)
-        self.rest.update()
         self._data = None
 
-    def update(self):
+    async def async_update(self):
         """Get the latest data from REST API and update the state."""
-        self.rest.update()
+        await self.rest.async_update()
         self._data = self.rest.data
 
     @property
@@ -110,8 +110,8 @@ class ESAFireDangerApi(RFSFireDangerApi):
     DEFAULT_ATTRIBUTION = 'ACT Emergency Services Agency'
     URL = 'https://esa.act.gov.au/feeds/firedangerrating.xml'
 
-    def update(self):
-        self.rest.update()
+    async def async_update(self):
+        await self.rest.async_update()
         self._data = self.rest.data
         # At the end of the bushfire season, the ESA return a blank file
         if not self._data:
@@ -173,9 +173,9 @@ class NswFireServiceFireDangerSensor(Entity):
         """Force update."""
         return self._force_update
 
-    def update(self):
+    async def async_update(self):
         """Get the latest data from REST API and update the state."""
-        self.api.update()
+        await self.api.async_update()
         value = self.api.data
         attributes = {
             'district': self._district_name,
