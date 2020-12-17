@@ -8,7 +8,7 @@ from datetime import timedelta
 from pyexpat import ExpatError
 
 import voluptuous as vol
-
+from homeassistant.core import callback
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.components.rest.data import RestData
 from homeassistant.const import (
@@ -79,7 +79,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     await api.async_update()
 
     async_add_entities([NswFireServiceFireDangerSensor(
-            hass, api, district_name, force_update)], True)
+            hass, api, district_name, force_update)])
 
 class RFSFireDangerApi:
     """Get the latest data and update the states."""
@@ -87,12 +87,21 @@ class RFSFireDangerApi:
     DEFAULT_ATTRIBUTION = 'NSW Rural Fire Service'
     URL = 'http://www.rfs.nsw.gov.au/feeds/fdrToban.xml'
     def __init__(self):
-        self.rest = RestData(DEFAULT_METHOD, self.URL, None, None, None, DEFAULT_VERIFY_SSL)
+        self.rest = RestData(self.hass, DEFAULT_METHOD, self.URL, None, None, None, DEFAULT_VERIFY_SSL)
         self._data = None
 
     async def async_update(self):
         """Get the latest data from REST API and update the state."""
         await self.rest.async_update()
+        self._async_update_from_rest_data()
+
+    async def async_added_to_hass(self):
+        """Ensure the data from the initial update is reflected in the state."""
+        self._async_update_from_rest_data()
+
+    @callback
+    def _async_update_from_rest_data(self):
+        """Update state from the rest data."""
         self._data = self.rest.data
 
     @property
@@ -112,14 +121,24 @@ class ESAFireDangerApi(RFSFireDangerApi):
 
     async def async_update(self):
         await self.rest.async_update()
-        self._data = self.rest.data
+        self._async_update_from_rest_data()
         # At the end of the bushfire season, the ESA return a blank file
+        # TODO fix this
         if not self._data:
             api = RFSFireDangerApi()
             api.rest.update()
             self._data = api.rest.data
             self.DEFAULT_ATTRIBUTION = api.DEFAULT_ATTRIBUTION #TODO: This should likely b e a property or something
             _LOGGER.warn("Requested data from ESA API but falling back to RFS")
+
+    async def async_added_to_hass(self):
+        """Ensure the data from the initial update is reflected in the state."""
+        self._async_update_from_rest_data()
+
+    @callback
+    def _async_update_from_rest_data(self):
+        """Update state from the rest data."""
+        self._data = self.rest.data
 
     @property
     def extra_attrs(self):
