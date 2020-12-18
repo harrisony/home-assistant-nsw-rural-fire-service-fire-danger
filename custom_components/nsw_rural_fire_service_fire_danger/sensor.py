@@ -86,8 +86,9 @@ class RFSFireDangerApi:
 
     DEFAULT_ATTRIBUTION = 'NSW Rural Fire Service'
     URL = 'http://www.rfs.nsw.gov.au/feeds/fdrToban.xml'
-    def __init__(self):
-        self.rest = RestData(self.hass, DEFAULT_METHOD, self.URL, None, None, None, DEFAULT_VERIFY_SSL)
+    def __init__(self, hass):
+        self.rest = RestData(hass, DEFAULT_METHOD, self.URL, None, None, None, DEFAULT_VERIFY_SSL)
+        self.hass = hass
         self._data = None
 
     async def async_update(self):
@@ -125,7 +126,7 @@ class ESAFireDangerApi(RFSFireDangerApi):
         # At the end of the bushfire season, the ESA return a blank file
         # TODO fix this
         if not self._data:
-            api = RFSFireDangerApi()
+            api = RFSFireDangerApi(self.hass)
             api.rest.update()
             self._data = api.rest.data
             self.DEFAULT_ATTRIBUTION = api.DEFAULT_ATTRIBUTION #TODO: This should likely b e a property or something
